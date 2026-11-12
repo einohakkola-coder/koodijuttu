@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lisää koodi</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="card">
+  <nav><a class="active" href="/">Lisää</a><a href="/hae">Hae</a></nav>
+  <h1>Lisää koodi</h1>
+  <form id="f" autocomplete="off">
+    <label>Koodi (4 numeroa)
+      <input id="code" class="code" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="0000" required>
+    </label>
+    <label>Nimi
+      <input id="name" maxlength="100" placeholder="esim. Matti" required>
+    </label>
+    <label class="row"><input type="checkbox" id="overwrite"> Korvaa jos koodi on jo käytössä</label>
+    <button type="submit">Tallenna</button>
+  </form>
+  <p id="msg" class="msg"></p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+$("code").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4));
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = $("msg");
+  msg.className = "msg"; msg.textContent = "Tallennetaan…";
+  try {
+    const r = await fetch("/api/code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: $("code").value, name: $("name").value, overwrite: $("overwrite").checked })
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Virhe");
+    msg.className = "msg ok";
+    msg.textContent = `Tallennettu: ${j.code} → ${j.name}`;
+    $("f").reset(); $("code").focus();
+  } catch (err) {
+    msg.className = "msg err"; msg.textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>
