@@ -2,46 +2,94 @@
 <html lang="fi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <title>Lisää koodi</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main class="card">
-  <nav><a class="active" href="/">Lisää</a><a href="/hae">Hae</a></nav>
-  <h1>Lisää koodi</h1>
-  <form id="f" autocomplete="off">
-    <label>Koodi (4 numeroa)
-      <input id="code" class="code" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="0000" required>
-    </label>
-    <label>Nimi
+  <nav data-active="0"><a class="active" href="/">Lisää</a><a href="/hae">Hae</a></nav>
+
+  <form id="f" class="stagger" autocomplete="off" novalidate>
+    <div>
+      <h1>Lisää koodi</h1>
+      <p class="sub">Liitä nimi nelinumeroiseen koodiin.</p>
+    </div>
+
+    <div>
+      <span class="label">Koodi</span>
+      <div class="pin" id="pin">
+        <input inputmode="numeric" autocomplete="one-time-code" maxlength="4" aria-label="Nelinumeroinen koodi" autofocus>
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span class="label">Nimi</span>
       <input id="name" maxlength="100" placeholder="esim. Matti" required>
     </label>
-    <label class="row"><input type="checkbox" id="overwrite"> Korvaa jos koodi on jo käytössä</label>
-    <button type="submit">Tallenna</button>
+
+    <label class="toggle">
+      <span>Korvaa jos koodi on jo käytössä</span>
+      <input type="checkbox" id="overwrite"><span class="sw"></span>
+    </label>
+
+    <button class="btn" id="save" type="submit">
+      <span class="lbl">Tallenna</span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </button>
+
+    <div class="toast" id="toast"><div id="toastText"></div></div>
   </form>
-  <p id="msg" class="msg"></p>
 </main>
+
+<script src="/ui.js"></script>
 <script>
-const $ = (id) => document.getElementById(id);
-$("code").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4));
-$("f").addEventListener("submit", async (e) => {
+const nameEl = document.getElementById("name");
+const btn = document.getElementById("save");
+const toast = document.getElementById("toast");
+const toastText = document.getElementById("toastText");
+let toastTimer;
+
+const pin = Pin(document.getElementById("pin"), {
+  onChange: () => hideToast(),
+  onComplete: () => nameEl.focus(),
+});
+pin.render();
+
+function showToast(type, html, autoHide) {
+  clearTimeout(toastTimer);
+  toast.className = "toast " + type;
+  toastText.innerHTML = `<span class="dot"></span>${html}`;
+  requestAnimationFrame(() => toast.classList.add("show"));
+  if (autoHide) toastTimer = setTimeout(hideToast, 4000);
+}
+function hideToast() { toast.classList.remove("show"); }
+
+document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const msg = $("msg");
-  msg.className = "msg"; msg.textContent = "Tallennetaan…";
+  if (pin.value.length !== 4) { pin.state("err"); pin.shake(); pin.focus(); return showToast("err", "Koodissa pitää olla 4 numeroa."); }
+  if (!nameEl.value.trim()) { nameEl.classList.add("shake"); setTimeout(() => nameEl.classList.remove("shake"), 400); nameEl.focus(); return showToast("err", "Anna nimi."); }
+
+  btn.disabled = true; btn.classList.add("loading"); pin.state("loading"); hideToast();
   try {
-    const r = await fetch("/api/code", {
+    const j = await api("/api/code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: $("code").value, name: $("name").value, overwrite: $("overwrite").checked })
+      body: JSON.stringify({ code: pin.value, name: nameEl.value, overwrite: document.getElementById("overwrite").checked }),
     });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Virhe");
-    msg.className = "msg ok";
-    msg.textContent = `Tallennettu: ${j.code} → ${j.name}`;
-    $("f").reset(); $("code").focus();
+    btn.classList.remove("loading"); btn.classList.add("done"); pin.state("ok");
+    showToast("ok", `Tallennettu <code>${esc(j.code)}</code> → ${esc(j.name)}`, true);
+    setTimeout(() => {
+      btn.classList.remove("done"); btn.disabled = false;
+      pin.clear(); nameEl.value = ""; pin.focus();
+    }, 1400);
   } catch (err) {
-    msg.className = "msg err"; msg.textContent = err.message;
+    btn.classList.remove("loading"); btn.disabled = false;
+    pin.state("err"); pin.shake();
+    showToast("err", esc(err.message));
   }
 });
 </script>

@@ -2,33 +2,70 @@
 <html lang="fi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <title>Hae koodi</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <main class="card">
-  <nav><a href="/">Lisää</a><a class="active" href="/hae">Hae</a></nav>
-  <h1>Syötä koodi</h1>
-  <input id="code" class="code big" inputmode="numeric" maxlength="4" placeholder="0000" autofocus autocomplete="off">
-  <div id="result" class="result"></div>
+  <nav data-active="1"><a href="/">Lisää</a><a class="active" href="/hae">Hae</a></nav>
+
+  <div class="stagger">
+    <div>
+      <h1>Syötä koodi</h1>
+      <p class="sub">Nimi näkyy heti, kun koodi on syötetty.</p>
+    </div>
+
+    <div class="pin big" id="pin">
+      <input inputmode="numeric" autocomplete="off" maxlength="4" aria-label="Nelinumeroinen koodi" autofocus>
+      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+    </div>
+
+    <div class="result" id="result" aria-live="polite"><span class="hint">Odotetaan koodia…</span></div>
+
+    <button class="clear" id="clear" type="button">Tyhjennä</button>
+  </div>
 </main>
+
+<script src="/ui.js"></script>
 <script>
-const input = document.getElementById("code");
 const out = document.getElementById("result");
-input.addEventListener("input", async () => {
-  input.value = input.value.replace(/\D/g, "").slice(0, 4);
-  out.className = "result"; out.textContent = "";
-  if (input.value.length !== 4) return;
-  out.textContent = "Haetaan…";
+const clearBtn = document.getElementById("clear");
+let req = 0;
+
+const pin = Pin(document.getElementById("pin"), {
+  onChange: (v) => {
+    req++;
+    clearBtn.classList.toggle("show", v.length > 0);
+    if (v.length < 4) out.innerHTML = `<span class="hint">${v.length ? "Vielä " + (4 - v.length) + "…" : "Odotetaan koodia…"}</span>`;
+  },
+  onComplete: lookup,
+});
+pin.render();
+
+async function lookup(code) {
+  const my = ++req;
+  pin.state("loading");
+  out.innerHTML = `<span class="hint">Haetaan…</span>`;
   try {
-    const r = await fetch("/api/code?code=" + input.value);
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Virhe");
-    out.className = "result found"; out.textContent = j.name;
+    const j = await api("/api/code?code=" + code);
+    if (my !== req) return;
+    pin.state("ok");
+    const letters = [...j.name].map((ch, i) => `<span style="animation-delay:${i * 35}ms">${esc(ch)}</span>`).join("");
+    out.innerHTML = `<div><div class="name">${letters}</div><span class="tag">Koodi ${esc(j.code)}</span></div>`;
   } catch (err) {
-    out.className = "result err"; out.textContent = err.message;
+    if (my !== req) return;
+    pin.state("err"); pin.shake();
+    out.innerHTML = `<span class="err-msg">${esc(err.message)}</span>`;
   }
+}
+
+clearBtn.addEventListener("click", () => {
+  req++; pin.clear(); pin.focus();
+  clearBtn.classList.remove("show");
+  out.innerHTML = `<span class="hint">Odotetaan koodia…</span>`;
 });
 </script>
 </body>

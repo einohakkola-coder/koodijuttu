@@ -1,26 +1,189 @@
-:root { --bg:#f4f4f2; --card:#fff; --fg:#1a1a1a; --muted:#777; --line:#ddd; --accent:#2f5bff; --ok:#1a8a4a; --err:#c0392b; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#141414; --card:#1e1e1e; --fg:#eee; --muted:#999; --line:#333; --accent:#6d8bff; --ok:#4cc27e; --err:#ff6b5b; }
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@500&display=swap");
+
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #737373;
+  --line: #e5e5e5;
+  --line-strong: #d4d4d4;
+  --accent: #0a0a0a;
+  --accent-fg: #ffffff;
+  --ok: #16a34a;
+  --err: #dc2626;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.3, 1.4, .5, 1);
 }
-* { box-sizing: border-box; }
-body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--fg);
-  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding:16px; }
-.card { width:100%; max-width:380px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px; }
-nav { display:flex; gap:4px; margin-bottom:20px; background:var(--bg); padding:4px; border-radius:10px; }
-nav a { flex:1; text-align:center; padding:8px; border-radius:8px; color:var(--muted); text-decoration:none; font-weight:600; }
-nav a.active { background:var(--card); color:var(--fg); }
-h1 { font-size:22px; margin:0 0 16px; }
-form { display:grid; gap:14px; }
-label { display:grid; gap:6px; font-size:14px; color:var(--muted); }
-label.row { display:flex; align-items:center; gap:8px; }
-input { font:inherit; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--fg); width:100%; }
-input[type=checkbox] { width:auto; }
-input:focus { outline:2px solid var(--accent); outline-offset:1px; }
-.code { font-family: ui-monospace, monospace; letter-spacing:.3em; text-align:center; font-size:22px; }
-.code.big { font-size:44px; padding:16px; }
-button { font:inherit; font-weight:600; padding:12px; border:0; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; }
-.msg { min-height:1.4em; margin:14px 0 0; color:var(--muted); }
-.msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
-.result { min-height:60px; margin-top:20px; text-align:center; font-size:18px; color:var(--muted); display:grid; place-items:center; }
-.result.found { font-size:34px; font-weight:700; color:var(--fg); }
-.result.err { color:var(--err); }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --fg: #fafafa;
+    --muted: #8a8a8a;
+    --line: #232323;
+    --line-strong: #333333;
+    --accent: #fafafa;
+    --accent-fg: #0a0a0a;
+    --ok: #4ade80;
+    --err: #f87171;
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0; min-height: 100vh; min-height: 100dvh;
+  display: grid; place-items: center; padding: 16px;
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.5 "Geist", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Kortti + sivusiirtymät */
+.card {
+  width: 100%; max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  animation: in .5s var(--ease) both;
+}
+@keyframes in { from { opacity: 0; transform: translateY(8px); } }
+body.leaving .card { animation: out .2s ease-in forwards; }
+@keyframes out { to { opacity: 0; transform: translateY(-6px); } }
+
+.stagger > * { animation: in .5s var(--ease) both; }
+.stagger > *:nth-child(2) { animation-delay: .05s; }
+.stagger > *:nth-child(3) { animation-delay: .1s; }
+.stagger > *:nth-child(4) { animation-delay: .15s; }
+.stagger > *:nth-child(5) { animation-delay: .2s; }
+.stagger > *:nth-child(6) { animation-delay: .25s; }
+
+/* Navigaatio – liukuva ilmaisin */
+nav {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr;
+  padding: 3px; margin-bottom: 32px; border-radius: 12px; background: var(--bg);
+  border: 1px solid var(--line);
+}
+nav::before {
+  content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+  border-radius: 9px; background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--line);
+  transition: transform .4s var(--spring);
+}
+nav[data-active="1"]::before { transform: translateX(100%); }
+nav a {
+  position: relative; z-index: 1; padding: 8px; text-align: center;
+  font-size: 14px; font-weight: 500; text-decoration: none; color: var(--muted);
+  transition: color .2s;
+}
+nav a.active, nav a:hover { color: var(--fg); }
+
+h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.sub { margin: 0 0 28px; color: var(--muted); font-size: 14px; }
+.label { display: block; margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--muted); }
+
+/* PIN-ruudut */
+.pin { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+.pin input {
+  position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%;
+  opacity: 0; border: 0; font-size: 16px; caret-color: transparent; cursor: text;
+}
+.cell {
+  aspect-ratio: 1 / 1.1; display: grid; place-items: center;
+  border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface);
+  font: 500 28px "Geist Mono", ui-monospace, monospace;
+  transition: border-color .2s, box-shadow .2s, transform .3s var(--spring);
+}
+.pin.big .cell { font-size: 36px; border-radius: 14px; }
+.cell.active { border-color: var(--fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 10%, transparent); }
+.cell.active:empty::after { content: ""; width: 1.5px; height: 32%; background: var(--fg); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.cell .d { display: inline-block; animation: pop .25s var(--spring) both; }
+@keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.8); } }
+
+.pin.loading .cell { animation: pulse 1s ease-in-out infinite; }
+.pin.loading .cell:nth-child(3) { animation-delay: .1s; }
+.pin.loading .cell:nth-child(4) { animation-delay: .2s; }
+.pin.loading .cell:nth-child(5) { animation-delay: .3s; }
+@keyframes pulse { 50% { transform: translateY(-3px); border-color: var(--fg); } }
+
+.pin.ok .cell { border-color: var(--ok); color: var(--ok); }
+.pin.err .cell { border-color: var(--err); color: var(--err); }
+.shake { animation: shake .4s var(--ease); }
+@keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+/* Tekstikenttä */
+.field input {
+  width: 100%; padding: 12px 14px; margin-bottom: 16px;
+  font: 500 16px "Geist", sans-serif; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px;
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.field input::placeholder { color: var(--muted); }
+.field input:focus { border-color: var(--fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 10%, transparent); }
+
+/* Kytkin */
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 24px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { display: none; }
+.toggle .sw { position: relative; flex: none; width: 36px; height: 20px; border-radius: 99px; background: var(--line-strong); transition: background .25s; }
+.toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .3s var(--spring); }
+.toggle input:checked + .sw { background: var(--accent); }
+.toggle input:checked + .sw::after { transform: translateX(16px); background: var(--accent-fg); }
+
+/* Painike */
+.btn {
+  position: relative; width: 100%; height: 46px; overflow: hidden;
+  font: 500 15px "Geist", sans-serif; color: var(--accent-fg);
+  background: var(--accent); border: 0; border-radius: 12px; cursor: pointer;
+  transition: transform .15s var(--ease), opacity .2s;
+}
+.btn:hover { opacity: .88; }
+.btn:active { transform: scale(.98); }
+.btn:disabled { opacity: .4; cursor: default; transform: none; }
+.btn .lbl { display: inline-block; transition: opacity .2s, transform .2s var(--ease); }
+.btn.loading .lbl, .btn.done .lbl { opacity: 0; transform: translateY(-6px); }
+.btn.loading::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 16px; height: 16px;
+  border: 1.5px solid color-mix(in srgb, var(--accent-fg) 30%, transparent); border-top-color: var(--accent-fg);
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn .check { position: absolute; inset: 0; margin: auto; width: 20px; height: 20px; opacity: 0; }
+.btn.done .check { opacity: 1; }
+.btn.done .check path { animation: draw .35s .05s var(--ease) both; }
+.check path { stroke-dasharray: 24; }
+@keyframes draw { from { stroke-dashoffset: 24; } }
+
+/* Ilmoitus */
+.toast {
+  display: grid; grid-template-rows: 0fr; margin-top: 0; opacity: 0;
+  font-size: 14px; color: var(--muted); transition: grid-template-rows .3s var(--ease), opacity .25s, margin .3s var(--ease);
+}
+.toast > div { overflow: hidden; }
+.toast.show { grid-template-rows: 1fr; opacity: 1; margin-top: 14px; }
+.toast.ok { color: var(--fg); }
+.toast.err { color: var(--err); }
+.toast .dot { display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+.toast.ok .dot { background: var(--ok); }
+.toast code { font-family: "Geist Mono", monospace; font-size: 13px; padding: 1px 5px; border-radius: 5px; background: var(--bg); border: 1px solid var(--line); }
+
+/* Hakutulos */
+.result { min-height: 112px; display: grid; place-items: center; text-align: center; }
+.result .hint { font-size: 14px; color: var(--muted); animation: in .3s var(--ease) both; }
+.result .name { font-size: clamp(30px, 9vw, 40px); font-weight: 600; letter-spacing: -.03em; line-height: 1.15; word-break: break-word; }
+.result .name span { display: inline-block; white-space: pre; animation: letter .5s var(--ease) both; }
+@keyframes letter { from { opacity: 0; transform: translateY(10px); filter: blur(4px); } }
+.result .tag { display: block; margin-top: 6px; font-size: 13px; color: var(--muted); animation: in .4s .2s var(--ease) both; }
+.result .err-msg { font-size: 14px; color: var(--err); animation: in .3s var(--ease) both; }
+
+.clear {
+  display: block; margin: 8px auto 0; padding: 6px 10px; border: 0; border-radius: 8px;
+  background: none; color: var(--muted); font: 500 13px "Geist", sans-serif; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .25s, background .2s, color .2s;
+}
+.clear.show { opacity: 1; pointer-events: auto; }
+.clear:hover { background: var(--bg); color: var(--fg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
