@@ -187,3 +187,69 @@ h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.02em;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* --- Selfie --- */
+.sheet {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  opacity: 0; pointer-events: none; transition: opacity .3s var(--ease);
+}
+.sheet.open { opacity: 1; pointer-events: auto; }
+.sheet .panel {
+  position: relative; width: 100%; max-width: 380px; text-align: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px;
+  transform: translateY(16px) scale(.98); transition: transform .45s var(--spring);
+}
+.sheet.open .panel { transform: none; }
+.sheet h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+.sheet .sub { margin-bottom: 20px; }
+.x {
+  position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; transition: background .2s, color .2s;
+}
+.x:hover { background: var(--bg); color: var(--fg); }
+
+.frame {
+  position: relative; aspect-ratio: 3 / 4; margin: 0 auto 20px; overflow: hidden;
+  border-radius: 16px; background: var(--bg); border: 1px solid var(--line);
+}
+.frame video, .frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.frame video { transform: scaleX(-1); opacity: 0; transition: opacity .4s; }
+.frame video.live { opacity: 1; }
+.frame canvas { opacity: 0; }
+.frame.shot canvas { opacity: 1; }
+.frame.shot video { opacity: 0; }
+.frame .msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; font-size: 14px; color: var(--muted); }
+.frame .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+.frame .flash.go { animation: flash .45s ease-out; }
+@keyframes flash { 0% { opacity: .9; } 100% { opacity: 0; } }
+.frame .caption {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 16px; text-align: left;
+  color: #fff; font-weight: 600; font-size: 22px; letter-spacing: -.02em;
+  background: linear-gradient(transparent, rgba(0,0,0,.55));
+  opacity: 0; transform: translateY(8px); transition: opacity .4s .15s, transform .4s .15s var(--ease);
+}
+.frame.shot .caption { opacity: 1; transform: none; }
+.frame .bar { position: absolute; left: 0; top: 0; height: 2px; width: 100%; background: #fff; transform-origin: left; transform: scaleX(0); }
+.frame.shot .bar { animation: bar 3s linear forwards; }
+@keyframes bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.frame.vanish canvas, .frame.vanish .caption { animation: vanish .7s var(--ease) forwards; }
+@keyframes vanish { to { opacity: 0; filter: blur(16px); transform: scale(1.06); } }
+
+.shutter {
+  position: relative; width: 64px; height: 64px; margin: 0 auto; display: block;
+  border-radius: 50%; border: 2px solid var(--fg); background: none; cursor: pointer; padding: 0;
+  transition: transform .15s var(--ease), opacity .2s;
+}
+.shutter::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--fg); transition: transform .15s var(--ease); }
+.shutter:active::after { transform: scale(.88); }
+.shutter:disabled { opacity: .3; cursor: default; }
+.sheet .note { margin: 14px 0 0; font-size: 12px; color: var(--muted); }
+
+.selfie-btn {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 14px;
+  border: 1px solid var(--line-strong); border-radius: 99px; background: var(--surface); color: var(--fg);
+  font: 500 14px "Geist", sans-serif; cursor: pointer; animation: in .4s .4s var(--ease) both; transition: background .2s;
+}
+.selfie-btn:hover { background: var(--bg); }

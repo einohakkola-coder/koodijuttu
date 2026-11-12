@@ -6,6 +6,13 @@
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
 <title>Hae koodi</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Koodit">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -28,6 +35,26 @@
     <button class="clear" id="clear" type="button">Tyhjennä</button>
   </div>
 </main>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="panel">
+    <button class="x" id="close" type="button" aria-label="Sulje">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <h2 id="sheetTitle">Ota selfie itsestäsi</h2>
+    <p class="sub" id="sheetSub">Katso kameraan ja paina laukaisinta.</p>
+    <div class="frame" id="frame">
+      <div class="msg" id="camMsg">Avataan kameraa…</div>
+      <video id="video" playsinline muted autoplay></video>
+      <canvas id="canvas"></canvas>
+      <div class="caption" id="caption"></div>
+      <div class="bar"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <button class="shutter" id="shutter" type="button" aria-label="Ota kuva" disabled></button>
+    <p class="note">Kuvaa ei tallenneta. Se poistuu heti.</p>
+  </div>
+</div>
 
 <script src="/ui.js"></script>
 <script>
@@ -54,7 +81,10 @@ async function lookup(code) {
     if (my !== req) return;
     pin.state("ok");
     const letters = [...j.name].map((ch, i) => `<span style="animation-delay:${i * 35}ms">${esc(ch)}</span>`).join("");
-    out.innerHTML = `<div><div class="name">${letters}</div><span class="tag">Koodi ${esc(j.code)}</span></div>`;
+    out.innerHTML = `<div><div class="name">${letters}</div><span class="tag">Koodi ${esc(j.code)}</span>
+      <button class="selfie-btn" type="button" onclick="openSelfie()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Ota selfie</button></div>`;
+    currentName = j.name;
+    setTimeout(() => { if (my === req) openSelfie(); }, 900 + j.name.length * 35);
   } catch (err) {
     if (my !== req) return;
     pin.state("err"); pin.shake();
@@ -67,6 +97,78 @@ clearBtn.addEventListener("click", () => {
   clearBtn.classList.remove("show");
   out.innerHTML = `<span class="hint">Odotetaan koodia…</span>`;
 });
+
+/* ---------- Selfie: otetaan, näytetään hetki ja poistetaan ---------- */
+const sheet = document.getElementById("sheet");
+const frame = document.getElementById("frame");
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const camMsg = document.getElementById("camMsg");
+const shutter = document.getElementById("shutter");
+const caption = document.getElementById("caption");
+const sheetSub = document.getElementById("sheetSub");
+let stream = null, currentName = "", timers = [];
+
+async function openSelfie() {
+  if (sheet.classList.contains("open")) return;
+  resetFrame();
+  sheet.classList.add("open");
+  sheetSub.textContent = "Katso kameraan ja paina laukaisinta.";
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Selain ei tue kameraa.");
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1080 }, height: { ideal: 1440 } }, audio: false });
+    if (!sheet.classList.contains("open")) return stopCam();
+    video.srcObject = stream;
+    await video.play().catch(() => {});
+    video.classList.add("live");
+    camMsg.textContent = "";
+    shutter.disabled = false;
+  } catch (e) {
+    camMsg.textContent = e.name === "NotAllowedError" ? "Kameran käyttö estettiin. Salli kamera selaimen asetuksista." : (e.message || "Kameraa ei saatu auki.");
+  }
+}
+
+shutter.addEventListener("click", () => {
+  if (!stream) return;
+  shutter.disabled = true;
+  const w = video.videoWidth, h = video.videoHeight;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.translate(w, 0); ctx.scale(-1, 1);          // peilikuva kuten esikatselussa
+  ctx.drawImage(video, 0, 0, w, h);
+  stopCam();
+  document.getElementById("flash").classList.add("go");
+  caption.textContent = currentName;
+  frame.classList.add("shot");
+  sheetSub.textContent = "Kuva poistuu hetken kuluttua.";
+  timers.push(setTimeout(() => frame.classList.add("vanish"), 3000));
+  timers.push(setTimeout(() => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h); canvas.width = 0; canvas.height = 0;   // kuva pyyhitään muistista
+    closeSelfie();
+  }, 3700));
+});
+
+function stopCam() {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = null; video.srcObject = null; video.classList.remove("live");
+}
+function resetFrame() {
+  timers.forEach(clearTimeout); timers = [];
+  frame.classList.remove("shot", "vanish");
+  document.getElementById("flash").classList.remove("go");
+  canvas.width = 0; canvas.height = 0; caption.textContent = "";
+  camMsg.textContent = "Avataan kameraa…"; shutter.disabled = true;
+}
+function closeSelfie() {
+  stopCam();
+  sheet.classList.remove("open");
+  setTimeout(resetFrame, 300);
+}
+document.getElementById("close").addEventListener("click", closeSelfie);
+sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSelfie(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheet.classList.contains("open")) closeSelfie(); });
+clearBtn.addEventListener("click", closeSelfie);
 </script>
 </body>
 </html>
