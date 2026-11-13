@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<title>Koodit</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Koodit">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="card">
+  <nav data-active="2"><a href="/">Lisää</a><a href="/hae">Hae</a><a class="active" href="/koodit">Koodit</a></nav>
+
+  <div class="stagger">
+    <div>
+      <h1>Kaikki koodit</h1>
+      <p class="sub" id="sub">Ladataan…</p>
+    </div>
+    <label class="search filter" id="filterWrap" hidden>
+      <svg class="search-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="filter" type="search" placeholder="Suodata koodilla tai tuotteella…" autocomplete="off" aria-label="Suodata">
+    </label>
+    <ul class="rows" id="rows"></ul>
+  </div>
+</main>
+
+<script src="/ui.js"></script>
+<script>
+const rowsEl = document.getElementById("rows");
+const sub = document.getElementById("sub");
+const filterEl = document.getElementById("filter");
+let items = []; // {code, name}
+
+const norm = (s) => s.trim().toLowerCase();
+const setSub = () => {
+  sub.innerHTML = items.length
+    ? `${items.length} ${items.length === 1 ? "koodi" : "koodia"}`
+    : `Ei koodeja. <a href="/">Lisää koodi</a>.`;
+};
+
+async function load() {
+  try {
+    const j = await api("/api/code?q=");
+    items = j.results.flatMap((r) => r.codes.map((code) => ({ code, name: r.name })))
+      .sort((a, b) => a.name.localeCompare(b.name, "fi") || a.code.localeCompare(b.code));
+    setSub();
+    document.getElementById("filterWrap").hidden = items.length < 6;
+    render();
+  } catch (err) {
+    sub.innerHTML = `<span class="err-text">${esc(err.message)}</span>`;
+  }
+}
+
+function render() {
+  const f = norm(filterEl.value);
+  const shown = items.filter((it) => !f || it.code.includes(f) || norm(it.name).includes(f));
+  if (!items.length) { rowsEl.innerHTML = ""; return; }
+  rowsEl.innerHTML = shown.length
+    ? shown.map((it, i) => `
+      <li class="row" data-code="${it.code}" style="animation-delay:${Math.min(i, 14) * 25}ms">
+        <span class="rcode">${it.code}</span>
+        <span class="rname">${esc(it.name)}</span>
+        <button type="button" class="del" aria-label="Poista ${it.code}">
+          <svg class="trash" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+          <span class="confirm">Poista?</span>
+        </button>
+      </li>`).join("")
+    : `<li class="empty">Ei osumia.</li>`;
+}
+filterEl.addEventListener("input", render);
+
+// Kaksivaiheinen poisto: 1. napautus kysyy "Poista?", 2. napautus poistaa
+let armed = null, armTimer;
+function disarm() { if (armed) armed.classList.remove("armed"); armed = null; clearTimeout(armTimer); }
+
+rowsEl.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".del");
+  if (!btn) return disarm();
+  const row = btn.closest(".row");
+  if (armed !== btn) {
+    disarm();
+    armed = btn; btn.classList.add("armed");
+    armTimer = setTimeout(disarm, 3000);
+    return;
+  }
+  disarm();
+  const code = row.dataset.code;
+  row.classList.add("removing");
+  try {
+    await api("/api/code?code=" + code, { method: "DELETE" });
+  } catch (err) {
+    if (err.status !== 404) { row.classList.remove("removing"); row.classList.add("shake"); return; }
+  }
+  items = items.filter((it) => it.code !== code);
+  row.classList.add("gone");
+  setTimeout(() => { row.remove(); setSub(); if (!items.length) render(); }, 350);
+});
+document.addEventListener("click", (e) => { if (!e.target.closest(".del")) disarm(); });
+
+load();
+</script>
+</body>
+</html>

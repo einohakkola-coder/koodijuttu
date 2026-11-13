@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
-<title>Hae koodi</title>
+<title>Tuotteet</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -17,158 +17,173 @@
 </head>
 <body>
 <main class="card">
-  <nav data-active="1"><a href="/">Lisää</a><a class="active" href="/hae">Hae</a></nav>
+  <nav data-active="1"><a href="/">Lisää</a><a class="active" href="/hae">Hae</a><a href="/koodit">Koodit</a></nav>
 
-  <div class="stagger">
-    <div>
-      <h1>Syötä koodi</h1>
-      <p class="sub">Nimi näkyy heti, kun koodi on syötetty.</p>
-    </div>
+  <div class="views" id="views">
+    <!-- Lista -->
+    <section class="view list-view stagger" id="listView">
+      <div>
+        <h1>Valitse tuote</h1>
+        <p class="sub" id="listSub">Ladataan tuotteita…</p>
+      </div>
+      <label class="search filter" id="filterWrap" hidden>
+        <svg class="search-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="filter" type="search" placeholder="Suodata…" autocomplete="off" aria-label="Suodata tuotteita">
+      </label>
+      <ul class="products" id="products"></ul>
+    </section>
 
-    <div class="pin big" id="pin">
-      <input inputmode="numeric" autocomplete="off" maxlength="4" aria-label="Nelinumeroinen koodi" autofocus>
-      <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-    </div>
-
-    <div class="result" id="result" aria-live="polite"><span class="hint">Odotetaan koodia…</span></div>
-
-    <button class="clear" id="clear" type="button">Tyhjennä</button>
+    <!-- Tuotteen koodit -->
+    <section class="view detail-view" id="detailView" aria-live="polite">
+      <button class="back" id="back" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Tuotteet
+      </button>
+      <h1 id="dName"></h1>
+      <p class="sub" id="dCount"></p>
+      <div class="codes" id="dCodes"></div>
+      <p class="tip" id="tip">Napauta koodia: se kopioituu ja poistuu.</p>
+      <div class="undo" id="undo"><div><span id="undoText"></span><button type="button" id="undoBtn">Kumoa</button></div></div>
+    </section>
   </div>
 </main>
 
-<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-  <div class="panel">
-    <button class="x" id="close" type="button" aria-label="Sulje">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-    </button>
-    <h2 id="sheetTitle">Ota selfie itsestäsi</h2>
-    <p class="sub" id="sheetSub">Katso kameraan ja paina laukaisinta.</p>
-    <div class="frame" id="frame">
-      <div class="msg" id="camMsg">Avataan kameraa…</div>
-      <video id="video" playsinline muted autoplay></video>
-      <canvas id="canvas"></canvas>
-      <div class="caption" id="caption"></div>
-      <div class="bar"></div>
-      <div class="flash" id="flash"></div>
-    </div>
-    <button class="shutter" id="shutter" type="button" aria-label="Ota kuva" disabled></button>
-    <p class="note">Kuvaa ei tallenneta. Se poistuu heti.</p>
-  </div>
-</div>
-
 <script src="/ui.js"></script>
 <script>
-const out = document.getElementById("result");
-const clearBtn = document.getElementById("clear");
-let req = 0;
+const listEl = document.getElementById("products");
+const listSub = document.getElementById("listSub");
+const filterWrap = document.getElementById("filterWrap");
+const filterEl = document.getElementById("filter");
+const views = document.getElementById("views");
+let products = [];
 
-const pin = Pin(document.getElementById("pin"), {
-  onChange: (v) => {
-    req++;
-    clearBtn.classList.toggle("show", v.length > 0);
-    if (v.length < 4) out.innerHTML = `<span class="hint">${v.length ? "Vielä " + (4 - v.length) + "…" : "Odotetaan koodia…"}</span>`;
-  },
-  onComplete: lookup,
-});
-pin.render();
+const norm = (s) => s.trim().toLowerCase();
+const countText = (n) => `${n} ${n === 1 ? "koodi" : "koodia"}`;
 
-async function lookup(code) {
-  const my = ++req;
-  pin.state("loading");
-  out.innerHTML = `<span class="hint">Haetaan…</span>`;
+async function load() {
   try {
-    const j = await api("/api/code?code=" + code);
-    if (my !== req) return;
-    pin.state("ok");
-    const letters = [...j.name].map((ch, i) => `<span style="animation-delay:${i * 35}ms">${esc(ch)}</span>`).join("");
-    out.innerHTML = `<div><div class="name">${letters}</div><span class="tag">Koodi ${esc(j.code)}</span>
-      <button class="selfie-btn" type="button" onclick="openSelfie()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Ota selfie</button></div>`;
-    currentName = j.name;
-    setTimeout(() => { if (my === req) openSelfie(); }, 900 + j.name.length * 35);
+    const j = await api("/api/code?q=");
+    products = j.results.sort((a, b) => a.name.localeCompare(b.name, "fi"));
+    if (!products.length) {
+      listSub.innerHTML = `Ei vielä tuotteita. <a href="/">Lisää ensimmäinen</a>.`;
+      return;
+    }
+    listSub.textContent = `${products.length} ${products.length === 1 ? "tuote" : "tuotetta"}`;
+    filterWrap.hidden = products.length < 6;
+    renderList();
   } catch (err) {
-    if (my !== req) return;
-    pin.state("err"); pin.shake();
-    out.innerHTML = `<span class="err-msg">${esc(err.message)}</span>`;
+    listSub.innerHTML = `<span class="err-text">${esc(err.message)}</span>`;
   }
 }
 
-clearBtn.addEventListener("click", () => {
-  req++; pin.clear(); pin.focus();
-  clearBtn.classList.remove("show");
-  out.innerHTML = `<span class="hint">Odotetaan koodia…</span>`;
+function renderList() {
+  const f = norm(filterEl.value);
+  if (!products.length) { listEl.innerHTML = ""; return; }
+  const shown = products.filter((p) => !f || norm(p.name).includes(f));
+  listEl.innerHTML = shown.length
+    ? shown.map((p, i) => `
+      <li style="animation-delay:${Math.min(i, 12) * 30}ms">
+        <button type="button" class="product" data-i="${products.indexOf(p)}">
+          <span class="badge">${p.prefix ?? "–"}</span>
+          <span class="pname">${esc(p.name)}</span>
+          <span class="pcount">${p.codes.length}</span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </li>`).join("")
+    : `<li class="empty">Ei tuotteita haulla "${esc(filterEl.value)}".</li>`;
+}
+filterEl.addEventListener("input", renderList);
+
+listEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".product");
+  if (b) openProduct(products[+b.dataset.i]);
 });
 
-/* ---------- Selfie: otetaan, näytetään hetki ja poistetaan ---------- */
-const sheet = document.getElementById("sheet");
-const frame = document.getElementById("frame");
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const camMsg = document.getElementById("camMsg");
-const shutter = document.getElementById("shutter");
-const caption = document.getElementById("caption");
-const sheetSub = document.getElementById("sheetSub");
-let stream = null, currentName = "", timers = [];
+function openProduct(p) {
+  document.getElementById("dName").textContent = p.name;
+  current = p;
+  renderCodes();
+  views.classList.add("detail");
+  history.pushState({ detail: true }, "");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function renderCodes() {
+  updateDetailCount();
+  dCodes.innerHTML = current.codes
+    .map((c, i) => `<button type="button" class="code" data-code="${c}" style="animation-delay:${120 + i * 50}ms">${c}</button>`)
+    .join("");
+}
+function closeProduct() {
+  listSub.textContent = products.length ? `${products.length} ${products.length === 1 ? "tuote" : "tuotetta"}` : "Ei tuotteita jäljellä.";
+  renderList();
+  const lv = document.getElementById("listView");
+  lv.classList.remove("back-in"); void lv.offsetWidth; lv.classList.add("back-in");
+  views.classList.remove("detail");
+}
 
-async function openSelfie() {
-  if (sheet.classList.contains("open")) return;
-  resetFrame();
-  sheet.classList.add("open");
-  sheetSub.textContent = "Katso kameraan ja paina laukaisinta.";
+document.getElementById("back").addEventListener("click", () => history.back());
+window.addEventListener("popstate", closeProduct);
+
+// Napauta koodia -> kopioi ja poista (kertakäyttöinen)
+const dCodes = document.getElementById("dCodes");
+const undo = document.getElementById("undo");
+const undoText = document.getElementById("undoText");
+let current = null, lastUsed = null, undoTimer;
+
+function updateDetailCount() {
+  const n = current.codes.length;
+  document.getElementById("dCount").textContent = n
+    ? countText(n) + (current.prefix ? ` · alkavat numerolla ${current.prefix}` : "")
+    : "Kaikki koodit käytetty.";
+  document.getElementById("tip").style.visibility = n ? "" : "hidden";
+}
+
+dCodes.addEventListener("click", async (e) => {
+  const b = e.target.closest(".code");
+  if (!b || b.disabled) return;
+  const code = b.dataset.code;
+  b.disabled = true;
+  try { await navigator.clipboard.writeText(code); } catch {}
+  b.classList.add("copied"); b.textContent = "Kopioitu";
   try {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error("Selain ei tue kameraa.");
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1080 }, height: { ideal: 1440 } }, audio: false });
-    if (!sheet.classList.contains("open")) return stopCam();
-    video.srcObject = stream;
-    await video.play().catch(() => {});
-    video.classList.add("live");
-    camMsg.textContent = "";
-    shutter.disabled = false;
-  } catch (e) {
-    camMsg.textContent = e.name === "NotAllowedError" ? "Kameran käyttö estettiin. Salli kamera selaimen asetuksista." : (e.message || "Kameraa ei saatu auki.");
+    const j = await api("/api/code?code=" + code, { method: "DELETE" });
+    current.codes = current.codes.filter((c) => c !== code);
+    if (!current.codes.length) products = products.filter((p) => p !== current);
+    lastUsed = { code, name: j.name, product: current };
+    showUndo(`${code} käytetty`);
+    setTimeout(() => {
+      b.classList.add("gone");
+      setTimeout(() => { b.remove(); updateDetailCount(); }, 350);
+    }, 600);
+  } catch (err) {
+    b.classList.remove("copied"); b.classList.add("used"); b.textContent = code;
+    showUndo(err.message, true);
+    current.codes = current.codes.filter((c) => c !== code);
+    setTimeout(() => { b.classList.add("gone"); setTimeout(() => { b.remove(); updateDetailCount(); }, 350); }, 1200);
   }
-}
-
-shutter.addEventListener("click", () => {
-  if (!stream) return;
-  shutter.disabled = true;
-  const w = video.videoWidth, h = video.videoHeight;
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.translate(w, 0); ctx.scale(-1, 1);          // peilikuva kuten esikatselussa
-  ctx.drawImage(video, 0, 0, w, h);
-  stopCam();
-  document.getElementById("flash").classList.add("go");
-  caption.textContent = currentName;
-  frame.classList.add("shot");
-  sheetSub.textContent = "Kuva poistuu hetken kuluttua.";
-  timers.push(setTimeout(() => frame.classList.add("vanish"), 3000));
-  timers.push(setTimeout(() => {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, w, h); canvas.width = 0; canvas.height = 0;   // kuva pyyhitään muistista
-    closeSelfie();
-  }, 3700));
 });
 
-function stopCam() {
-  if (stream) stream.getTracks().forEach((t) => t.stop());
-  stream = null; video.srcObject = null; video.classList.remove("live");
+function showUndo(text, noButton) {
+  clearTimeout(undoTimer);
+  undoText.textContent = text;
+  document.getElementById("undoBtn").hidden = !!noButton;
+  undo.classList.add("show");
+  undoTimer = setTimeout(() => { undo.classList.remove("show"); lastUsed = null; }, 5000);
 }
-function resetFrame() {
-  timers.forEach(clearTimeout); timers = [];
-  frame.classList.remove("shot", "vanish");
-  document.getElementById("flash").classList.remove("go");
-  canvas.width = 0; canvas.height = 0; caption.textContent = "";
-  camMsg.textContent = "Avataan kameraa…"; shutter.disabled = true;
-}
-function closeSelfie() {
-  stopCam();
-  sheet.classList.remove("open");
-  setTimeout(resetFrame, 300);
-}
-document.getElementById("close").addEventListener("click", closeSelfie);
-sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSelfie(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && sheet.classList.contains("open")) closeSelfie(); });
-clearBtn.addEventListener("click", closeSelfie);
+
+document.getElementById("undoBtn").addEventListener("click", async () => {
+  if (!lastUsed) return;
+  const u = lastUsed; lastUsed = null;
+  clearTimeout(undoTimer); undo.classList.remove("show");
+  try {
+    await api("/api/code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: u.code, name: u.name }) });
+    u.product.codes = [...u.product.codes, u.code].sort();
+    if (!products.includes(u.product)) products.push(u.product), products.sort((a, b) => a.name.localeCompare(b.name, "fi"));
+    if (current === u.product && views.classList.contains("detail")) renderCodes();
+  } catch (err) { showUndo(err.message, true); }
+});
+
+load();
 </script>
 </body>
 </html>
