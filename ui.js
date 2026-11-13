@@ -5,12 +5,19 @@
 function Pin(root, { onChange, onComplete } = {}) {
   const input = root.querySelector("input");
   const cells = [...root.querySelectorAll(".cell")];
-  let prev = "";
+  let prev = "", prefix = "";
+
+  function applyPrefix() {
+    let v = input.value.replace(/\D/g, "");
+    if (prefix && !v.startsWith(prefix)) v = prefix + v;
+    input.value = v.slice(0, 4);
+  }
 
   function render() {
     const v = input.value;
     cells.forEach((c, i) => {
       const ch = v[i] || "";
+      c.classList.toggle("locked", !!prefix && i === 0);
       if (ch !== (prev[i] || "")) c.innerHTML = ch ? `<span class="d">${ch}</span>` : "";
       c.classList.toggle("active", document.activeElement === input && i === Math.min(v.length, 3) && !(v.length === 4 && i !== 3));
     });
@@ -18,7 +25,7 @@ function Pin(root, { onChange, onComplete } = {}) {
   }
 
   input.addEventListener("input", () => {
-    input.value = input.value.replace(/\D/g, "").slice(0, 4);
+    applyPrefix();
     root.classList.remove("ok", "err");
     render();
     onChange && onChange(input.value);
@@ -32,7 +39,18 @@ function Pin(root, { onChange, onComplete } = {}) {
   return {
     get value() { return input.value; },
     focus() { input.focus(); },
-    clear() { input.value = ""; root.classList.remove("ok", "err"); render(); },
+    clear() { input.value = ""; applyPrefix(); root.classList.remove("ok", "err"); render(); },
+    // Lukitsee ensimmäisen numeron (tuotteen oma aloitusnumero). "" poistaa lukituksen.
+    setPrefix(d) {
+      d = d || "";
+      if (d === prefix) return;
+      const rest = prefix ? input.value.slice(1) : input.value;
+      prefix = d;
+      input.value = (d + rest).slice(0, 4);
+      root.classList.remove("ok", "err");
+      prev = ""; cells.forEach((c) => (c.innerHTML = ""));
+      render();
+    },
     state(s) { root.classList.remove("ok", "err", "loading"); if (s) root.classList.add(s); },
     shake() { root.classList.remove("shake"); void root.offsetWidth; root.classList.add("shake"); },
     render,
@@ -46,7 +64,7 @@ async function api(url, opts) {
   let j;
   try { j = JSON.parse(t); }
   catch { throw new Error(r.status === 404 ? "API:a ei löydy (/api/code). Onko api/code.js oikeassa kansiossa?" : "Palvelinvirhe " + r.status); }
-  if (!r.ok) throw Object.assign(new Error(j.error || "Virhe"), { status: r.status });
+  if (!r.ok) throw Object.assign(new Error(j.error || "Virhe"), { status: r.status, data: j });
   return j;
 }
 

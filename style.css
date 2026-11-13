@@ -253,3 +253,66 @@ h1 { margin: 0 0 4px; font-size: 22px; font-weight: 600; letter-spacing: -.02em;
   font: 500 14px "Geist", sans-serif; cursor: pointer; animation: in .4s .4s var(--ease) both; transition: background .2s;
 }
 .selfie-btn:hover { background: var(--bg); }
+
+/* --- Tuotehaku --- */
+.search {
+  position: relative; display: flex; align-items: center; margin-bottom: 24px;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 14px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.search:focus-within { border-color: var(--fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 10%, transparent); }
+.search-ic { flex: none; margin-left: 14px; color: var(--muted); }
+.search input {
+  flex: 1; min-width: 0; padding: 14px 10px; border: 0; outline: none; background: none;
+  font: 500 17px "Geist", sans-serif; color: var(--fg); -webkit-appearance: none; appearance: none;
+}
+.search input::placeholder { color: var(--muted); }
+.search input::-webkit-search-cancel-button { display: none; }
+.search-btn {
+  position: relative; flex: none; width: 38px; height: 38px; margin-right: 5px; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background: var(--accent); color: var(--accent-fg); cursor: pointer;
+  transition: transform .15s var(--ease), opacity .2s;
+}
+.search-btn:active { transform: scale(.94); }
+.search-btn svg { transition: opacity .2s, transform .25s var(--ease); }
+.search.loading .search-btn svg { opacity: 0; transform: translateX(6px); }
+.search.loading .search-btn::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px;
+  border: 1.5px solid color-mix(in srgb, var(--accent-fg) 30%, transparent); border-top-color: var(--accent-fg);
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+
+.results { min-height: 80px; display: grid; gap: 10px; }
+.results .hint, .results .err-msg { margin: 20px 0; text-align: center; font-size: 14px; animation: in .3s var(--ease) both; }
+.results .hint { color: var(--muted); }
+.results .err-msg { color: var(--err); }
+
+.group {
+  padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg);
+  animation: in .45s var(--ease) both;
+}
+.group header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.group h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; word-break: break-word; }
+.group .count { flex: none; font-size: 13px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  min-width: 64px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--fg); cursor: pointer;
+  font: 500 16px "Geist Mono", ui-monospace, monospace; letter-spacing: .06em;
+  animation: pop .3s var(--spring) both; transition: background .2s, color .2s, border-color .2s, transform .15s var(--ease);
+}
+.chip:hover { border-color: var(--fg); }
+.chip:active { transform: scale(.95); }
+.chip.copied { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font: 500 12px "Geist", sans-serif; letter-spacing: 0; }
+
+/* --- Tuotteen aloitusnumero --- */
+.cell.locked { background: var(--bg); border-style: dashed; color: var(--muted); }
+.cell.locked::before {
+  content: ""; position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; opacity: .6;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.cell { position: relative; }
+.prefix-hint { display: inline-block; color: var(--fg); opacity: 0; transform: translateX(-4px); transition: opacity .25s, transform .3s var(--ease); }
+.prefix-hint.show { opacity: 1; transform: none; }

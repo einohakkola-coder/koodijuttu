@@ -22,21 +22,22 @@
   <form id="f" class="stagger" autocomplete="off" novalidate>
     <div>
       <h1>Lisää koodi</h1>
-      <p class="sub">Liitä nimi nelinumeroiseen koodiin.</p>
-    </div>
-
-    <div>
-      <span class="label">Koodi</span>
-      <div class="pin" id="pin">
-        <input inputmode="numeric" autocomplete="one-time-code" maxlength="4" aria-label="Nelinumeroinen koodi" autofocus>
-        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
-      </div>
+      <p class="sub">Liitä tuote nelinumeroiseen koodiin.</p>
     </div>
 
     <label class="field">
-      <span class="label">Nimi</span>
-      <input id="name" maxlength="100" placeholder="esim. Matti" required>
+      <span class="label">Tuote</span>
+      <input id="name" maxlength="100" placeholder="esim. Maito" list="products" enterkeyhint="next" required autofocus>
+      <datalist id="products"></datalist>
     </label>
+
+    <div>
+      <span class="label">Koodi <span class="prefix-hint" id="prefixHint"></span></span>
+      <div class="pin" id="pin">
+        <input inputmode="numeric" autocomplete="one-time-code" maxlength="4" aria-label="Nelinumeroinen koodi">
+        <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+      </div>
+    </div>
 
     <label class="toggle">
       <span>Korvaa jos koodi on jo käytössä</span>
@@ -60,11 +61,36 @@ const toast = document.getElementById("toast");
 const toastText = document.getElementById("toastText");
 let toastTimer;
 
+const prefixHint = document.getElementById("prefixHint");
 const pin = Pin(document.getElementById("pin"), {
   onChange: () => hideToast(),
-  onComplete: () => nameEl.focus(),
+  onComplete: () => { if (!nameEl.value.trim()) nameEl.focus(); },
 });
 pin.render();
+
+const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ");
+let prefixes = {}; // tuote -> aloitusnumero
+
+// Ehdotetaan olemassa olevia tuotenimiä ja haetaan niiden aloitusnumerot
+async function loadProducts() {
+  try {
+    const j = await api("/api/code?q=");
+    prefixes = {};
+    j.results.forEach((r) => { if (r.prefix) prefixes[norm(r.name)] = r.prefix; });
+    document.getElementById("products").innerHTML = j.results.map((r) => `<option value="${esc(r.name)}">`).join("");
+    updatePrefix();
+  } catch {}
+}
+loadProducts();
+
+function updatePrefix() {
+  const d = prefixes[norm(nameEl.value)] || "";
+  pin.setPrefix(d);
+  prefixHint.textContent = d ? `· alkaa numerolla ${d}` : "";
+  prefixHint.classList.toggle("show", !!d);
+}
+nameEl.addEventListener("input", () => { hideToast(); updatePrefix(); });
+nameEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); pin.focus(); } });
 
 function showToast(type, html, autoHide) {
   clearTimeout(toastTimer);
@@ -78,7 +104,7 @@ function hideToast() { toast.classList.remove("show"); }
 document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   if (pin.value.length !== 4) { pin.state("err"); pin.shake(); pin.focus(); return showToast("err", "Koodissa pitää olla 4 numeroa."); }
-  if (!nameEl.value.trim()) { nameEl.classList.add("shake"); setTimeout(() => nameEl.classList.remove("shake"), 400); nameEl.focus(); return showToast("err", "Anna nimi."); }
+  if (!nameEl.value.trim()) { nameEl.classList.add("shake"); setTimeout(() => nameEl.classList.remove("shake"), 400); nameEl.focus(); return showToast("err", "Anna tuotteen nimi."); }
 
   btn.disabled = true; btn.classList.add("loading"); pin.state("loading"); hideToast();
   try {
@@ -89,12 +115,16 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     });
     btn.classList.remove("loading"); btn.classList.add("done"); pin.state("ok");
     showToast("ok", `Tallennettu <code>${esc(j.code)}</code> → ${esc(j.name)}`, true);
+    if (!prefixes[norm(j.name)]) prefixes[norm(j.name)] = j.code[0];
+    loadProducts();
+    // Tuotenimi jää kenttään, jotta samalle tuotteelle voi lisätä heti seuraavan koodin
     setTimeout(() => {
       btn.classList.remove("done"); btn.disabled = false;
-      pin.clear(); nameEl.value = ""; pin.focus();
-    }, 1400);
+      updatePrefix(); pin.clear(); pin.focus();
+    }, 1200);
   } catch (err) {
     btn.classList.remove("loading"); btn.disabled = false;
+    if (err.data && err.data.prefix) { prefixes[norm(nameEl.value)] = err.data.prefix; updatePrefix(); }
     pin.state("err"); pin.shake();
     showToast("err", esc(err.message));
   }
